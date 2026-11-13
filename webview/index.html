@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arthas</title>
+<style>
+  /* ── 设计 token：与设计稿一致，未新增颜色 ─────────────────────────── */
+  :root {
+    --bg:        #0A0B0E;
+    --panel:     #111318;
+    --card:      #171B22;
+    --input:     #14181F;
+    --line:      #1A1F28;
+    --line-2:    #232A36;
+    --text:      #E6EAF2;
+    --text-2:    #C9D2DE;
+    --muted:     #7A8494;
+    --dim:       #5D6879;
+    --faint:     #3A424F;
+
+    --accent:    #FF7A45;
+    --accent-hi: #FF9A6C;
+    --accent-bg: #2A1A12;
+    --accent-bd: #6B3A22;
+
+    --teal:      #4EC9B0;
+    --teal-bg:   #12241F;
+    --teal-bd:   #234A3C;
+    --green:     #3FB950;
+    --green-bg:  #12241C;
+    --amber:     #E3B341;
+    --red:       #F85149;
+    --red-bg:    #2A1416;
+    --red-bd:    #5E2A2E;
+
+    --mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+    --sans: "PingFang SC", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--panel);
+    color: var(--text);
+    font: 400 12px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  input, select { font: inherit; color: inherit; background: none; border: 0; outline: 0; }
+  [hidden] { display: none !important; }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 360px;
+  }
+
+  /* ── 头部 ─────────────────────────────────────────────────────── */
+  .hd {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 10px 0 14px;
+    flex: none;
+  }
+  .hd__title {
+    font: 600 10.5px/1 "Inter", var(--sans);
+    letter-spacing: 1.6px;
+    color: #8B95A7;
+  }
+  .hd__actions { margin-left: auto; display: flex; gap: 2px; }
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 24px; height: 24px;
+    border-radius: 4px;
+    color: #6E7A8C;
+  }
+  .icon-btn:hover { background: #1B2029; color: var(--text-2); }
+  .icon-btn svg { display: block; }
+
+  /* ── 标签页 ───────────────────────────────────────────────────── */
+  .tabs {
+    display: flex;
+    gap: 22px;
+    height: 34px;
+    padding: 0 14px;
+    flex: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab {
+    position: relative;
+    padding: 0;
+    font-size: 12.5px;
+    color: #707C8F;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text-2); }
+  .tab.is-active { color: var(--text); }
+  .tab.is-active::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--accent);
+  }
+
+  /* ── 内容区 ───────────────────────────────────────────────────── */
+  .body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .body::-webkit-scrollbar { width: 8px; }
+  .body::-webkit-scrollbar-thumb { background: #232A36; border-radius: 4px; }
+  .body::-webkit-scrollbar-track { background: transparent; }
+
+  .sec {
+    font: 500 10.5px/1.3 var(--sans);
+    letter-spacing: .6px;
+    color: var(--muted);
+    flex: none;
+  }
+
+  /* ── 卡片（目标进程 / 定位） ──────────────────────────────────── */
+  .target {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    background: var(--card);
+    flex: none;
+  }
+  .target__row { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 6px; height: 6px; border-radius: 3px; flex: none; }
+  .dot--on { background: var(--green); }
+  .dot--off { background: var(--dim); }
+  .target__name {
+    font: 500 11px/1.4 var(--mono);
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pill {
+    margin-left: auto;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--green-bg);
+    color: var(--green);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .pill--off { background: #1B2029; color: var(--muted); }
+  .target__meta {
+    font: 400 9.5px/1.5 var(--mono);
+    color: var(--dim);
+    letter-spacing: .2px;
+    word-break: break-all;
+  }
+
+  .loc { gap: 6px; }
+  .loc__member {
+    font: 500 11px/1.4 var(--mono);
+    color: var(--accent-hi);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .kind {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #1C2230;
+    font: 500 9px/1.5 var(--mono);
+    color: #8B95A7;
+    flex: none;
+  }
+
+  /* ── 命令族 / 变体 chip ───────────────────────────────────────── */
+  .fams { display: flex; flex-wrap: wrap; gap: 4px; flex: none; }
+  .fam {
+    padding: 3px 8px;
+    border: 1px solid #1E2430;
+    border-radius: 4px;
+    background: #0E1015;
+    font: 400 10.5px/1.5 var(--mono);
+    color: #707C8F;
+  }
+  .fam:hover { color: var(--text-2); border-color: #2C3546; }
+  .fam[aria-pressed="true"] {
+    background: var(--accent-bg);
+    border-color: var(--accent-bd);
+    color: var(--accent-hi);
+    font-weight: 500;
+  }
+
+  .vars { display: flex; flex-wrap: wrap; gap: 4px; flex: none; }
+  .var {
+    padding: 2px 7px;
+    border: 1px solid #1E2430;
+    border-radius: 4px;
+    font-size: 10.5px;
+    color: #707C8F;
+  }
+  .var:hover { color: var(--text-2); border-color: #2C3546; }
+  .var[aria-pressed="true"] {
+    background: var(--teal-bg);
+    border-color: var(--teal-bd);
+    color: var(--teal);
+    font-weight: 500;
+  }
+
+  /* ── 表单 ─────────────────────────────────────────────────────── */
+  .field { display: flex; flex-direction: column; gap: 5px; flex: none; }
+  .field > label { font-size: 10.5px; color: var(--muted); }
+  .field__row { display: flex; gap: 6px; }
+
+  .input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    padding: 0 9px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    background: var(--input);
+    flex: 1;
+    min-width: 0;
+  }
+  .input:focus-within { border-color: var(--accent); }
+  .input input {
+    flex: 1;
+    min-width: 0;
+    font: 400 11px/1 var(--mono);
+    color: var(--text-2);
+  }
+  .input input::placeholder { color: var(--dim); }
+  .input--sm { height: 28px; }
+  .input--sm input { font-size: 11px; }
+  .input select {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    font: 400 11px/1 var(--mono);
+    color: var(--text-2);
+    appearance: none;
+    cursor: pointer;
+  }
+  .input select option { background: var(--card); color: var(--text-2); }
+  .input__caret { color: var(--dim); flex: none; pointer-events: none; }
+
+  .field-2 { display: flex; gap: 8px; flex: none; }
+  .field-2 > .field { flex: 1; }
+
+  .hint { font-size: 9.5px; line-height: 1.6; color: var(--dim); flex: none; }
+  .hint code { font: 400 9.5px/1.6 var(--mono); color: #8FA0B5; }
+
+  /* ── 生成命令块 ───────────────────────────────────────────────── */
+  /* 钉在滚动区底部：字段多的时候它会跟着滚动条留在视野里，字段少的
+     时候它紧跟在表单后面，中间不留一片空白。 */
+  .cmd {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid #3B2A1D;
+    border-radius: 6px;
+    background: #12100E;
+    flex: none;
+  }
+  .cmd__hd { display: flex; align-items: center; gap: 6px; }
+  .cmd__label {
+    font: 500 9.5px/1.3 var(--sans);
+    letter-spacing: .8px;
+    color: #8B95A7;
+  }
+  .cmd__badge {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--accent-bg);
+    font: 500 9px/1.4 var(--mono);
+    color: var(--accent-hi);
+  }
+  .cmd__actions { margin-left: auto; display: flex; gap: 6px; }
+  .btn {
+    padding: 3px 9px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .btn--ghost {
+    border-color: #3B2A1D;
+    background: #1C1A17;
+    color: #B9A99A;
+  }
+  .btn--ghost:hover { border-color: var(--accent-bd); color: var(--accent-hi); }
+  .btn--primary { background: var(--accent); color: #1A0E07; font-weight: 500; }
+  .btn--primary:hover { background: #FF8B5C; }
+  .btn--secondary {
+    border-color: #2C3546;
+    background: var(--card);
+    color: var(--text-2);
+  }
+  .btn--secondary:hover { border-color: #3B4455; }
+
+  .cmd__code {
+    font: 400 10.5px/1.65 var(--mono);
+    color: #9FB0C4;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .cmd__code .c-cmd  { color: var(--accent-hi); font-weight: 500; }
+  .cmd__code .c-str  { color: #CE9F6B; }
+  .cmd__code .c-flag { color: #6E7A8C; }
+
+  .cmd__hint { font-size: 9.5px; color: var(--dim); }
+
+  /* ── 未连接：进程列表 ─────────────────────────────────────────── */
+  .empty { display: flex; flex-direction: column; gap: 10px; }
+  .proc {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 9px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    background: var(--card);
+    text-align: left;
+  }
+  .proc:hover { border-color: var(--accent-bd); }
+  .proc__name { font: 500 11px/1.4 var(--mono); color: var(--text-2); }
+  .proc__meta { font: 400 9.5px/1.4 var(--mono); color: var(--dim); }
+
+  /* ── 横幅 ─────────────────────────────────────────────────────── */
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 5px;
+    font-size: 10.5px;
+    flex: none;
+  }
+  .banner--err { background: var(--red-bg); border: 1px solid var(--red-bd); color: #F0A6A2; }
+  .banner--warn { background: #241F10; border: 1px solid #4A3C1A; color: #E3C88A; }
+  .banner__act { margin-left: auto; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+  /* ── 结果视图（静态示例） ─────────────────────────────────────── */
+  .row-2 { display: flex; align-items: center; gap: 10px; height: 26px; flex: none; }
+  .row-2__name {
+    font: 400 10.5px/1.4 var(--mono);
+    color: var(--text-2);
+    flex: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .row-2__bar { height: 6px; border-radius: 3px; flex: none; }
+  .row-2__cost {
+    margin-left: auto;
+    font: 400 10px/1.4 var(--mono);
+    color: var(--muted);
+    flex: none;
+  }
+  .row-2--hot  .row-2__name { color: var(--text); font-weight: 500; }
+  .row-2--hot  .row-2__cost { color: var(--accent-hi); }
+
+  .tbl { border: 1px solid #1E2430; border-radius: 6px; overflow: hidden; flex: none; }
+  .tbl__hd, .tbl__r {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+  }
+  .tbl__hd { height: 28px; background: #14181F; font-size: 9.5px; color: var(--dim); }
+  .tbl__r { height: 32px; font: 400 10px/1.4 var(--mono); color: var(--muted); }
+  .tbl__r:hover { background: #12161C; }
+  .tbl__r:nth-child(odd) { background: #12161C; }
+  .c-time { width: 92px; flex: none; }
+  .c-ch   { width: 44px; flex: none; color: var(--teal); }
+  .c-cost { width: 74px; flex: none; text-align: right; }
+  .c-res  { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #A9B7C6; }
+  .cost--amber { color: var(--amber); }
+  .cost--hot   { color: var(--accent-hi); }
+  .cost--ok    { color: var(--teal); }
+
+  .stats { display: flex; gap: 10px; flex: none; }
+  .stat {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #1E2430;
+    border-radius: 6px;
+    background: #0F1217;
+  }
+  .stat__l { font-size: 9.5px; color: var(--dim); }
+  .stat__v { font: 500 15px/1.4 var(--mono); color: var(--text); margin-top: 5px; }
+
+  .json {
+    padding: 12px;
+    border: 1px solid #1E2430;
+    border-radius: 6px;
+    background: #0F1217;
+    font: 400 10px/1.7 var(--mono);
+    color: #8FA0B5;
+    white-space: pre;
+    overflow-x: auto;
+    flex: none;
+  }
+
+  /* ── Toast ────────────────────────────────────────────────────── */
+  .toast {
+    position: absolute;
+    left: 14px; right: 14px; bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px;
+    border: 1px solid #2C3546;
+    border-radius: 6px;
+    background: #171B22;
+    box-shadow: 0 10px 24px rgba(0,0,0,.5);
+    font-size: 10.5px;
+    color: var(--text-2);
+  }
+  .toast__act { margin-left: auto; color: var(--accent-hi); font-weight: 500; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="panel" id="panel">
+
+  <header class="hd">
+    <span class="hd__title">ARTHAS</span>
+    <div class="hd__actions">
+      <button class="icon-btn" id="btn-reload" title="从编辑器重新读取（当前文件的光标位置）">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 12a8 8 0 1 1-2.3-5.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M20.4 4.6v4h-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-targets" title="刷新本机 JVM 列表">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="7" rx="1.6" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="14" width="18" height="6" rx="1.6" stroke="currentColor" stroke-width="1.6"/><circle cx="6.5" cy="7.5" r="1" fill="currentColor"/><circle cx="6.5" cy="17" r="1" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" data-tab="build" role="tab">命令构建</button>
+    <button class="tab" data-tab="result" role="tab">命中记录</button>
+  </nav>
+
+  <div class="body" id="body">
+
+    <!-- ═══ 没有定位到类：先挑进程 ═══ -->
+    <div class="empty" data-state="idle" hidden>
+      <div class="banner banner--warn" id="idle-banner" hidden>
+        <span id="idle-banner-text"></span>
+      </div>
+      <div class="sec">本机 JVM · —</div>
+      <div class="input input--sm">
+        <span class="input__icon" style="color:var(--dim);display:grid;place-items:center">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5 20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <input id="proc-filter" placeholder="按主类名或 PID 过滤" aria-label="过滤进程">
+      </div>
+      <div id="proc-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div class="hint">要把类名带进来，在 Java / Kotlin 文件里把光标放到方法或字段上，再点右上角的刷新，或用编辑器右键菜单 <code>Arthas ›</code>。</div>
+      <div class="hint">进程列表来自 <code>jps -l</code>：需要 <code>process:jps</code> 授权，且 PATH 上有 <code>jps</code>。</div>
+    </div>
+
+    <!-- ═══ 命令构建 ═══ -->
+    <div data-state="ready" data-view="build" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0" hidden>
+
+      <div class="target">
+        <div class="target__row">
+          <span class="dot dot--off" id="target-dot"></span>
+          <span class="target__name" id="target-name">未选择目标 JVM</span>
+          <span class="pill pill--off" id="target-pill">未连接</span>
+        </div>
+        <div class="target__meta" id="target-meta">执行时由 arthas-boot 附加；先在上面挑一个进程</div>
+      </div>
+
+      <div class="target loc">
+        <div class="target__row">
+          <span class="kind" id="loc-kind">类</span>
+          <span class="loc__member" id="loc-member">—</span>
+        </div>
+        <div class="target__meta" id="loc-meta">—</div>
+      </div>
+
+      <div class="sec">命令</div>
+      <div class="fams" id="fams" role="group" aria-label="命令族"></div>
+
+      <div class="vars" id="vars" role="group" aria-label="命令形态"></div>
+      <div class="hint" id="var-desc"></div>
+
+      <div style="display:flex;flex-direction:column;gap:8px" id="form"></div>
+
+      <div class="cmd">
+        <div class="cmd__hd">
+          <span class="cmd__label">生成的命令</span>
+          <span class="cmd__badge" id="cmd-badge">—</span>
+          <div class="cmd__actions">
+            <button class="btn btn--ghost" id="btn-copy">复制</button>
+            <button class="btn btn--primary" id="btn-run">执行</button>
+          </div>
+        </div>
+        <div class="cmd__code" id="cmd-code"></div>
+        <div class="cmd__hint" id="cmd-hint">⌘⏎ 执行</div>
+      </div>
+    </div>
+
+    <!-- ═══ 命中记录（静态示例） ═══ -->
+    <div data-state="ready" data-view="result" style="display:flex;flex-direction:column;gap:14px" hidden>
+
+      <div class="hint">示例形态：本版只生成命令，还没有回读 arthas 输出的一路，下面是静态示例。</div>
+
+      <div class="sec">调用链　trace</div>
+      <div style="display:flex;flex-direction:column">
+        <div class="row-2 row-2--hot">
+          <span class="row-2__name" style="width:190px">createOrder(CreateOrderCmd)</span>
+          <span class="row-2__bar" style="width:76px;background:var(--accent)"></span>
+          <span class="row-2__cost">62.31 ms</span>
+        </div>
+        <div class="row-2" style="padding-left:14px">
+          <span class="row-2__name" style="width:176px">doCreate(cmd)</span>
+          <span class="row-2__bar" style="width:70px;background:#D0723F"></span>
+          <span class="row-2__cost">58.90 ms</span>
+        </div>
+        <div class="row-2" style="padding-left:28px">
+          <span class="row-2__name" style="width:162px">repo.save(order)</span>
+          <span class="row-2__bar" style="width:64px;background:var(--amber)"></span>
+          <span class="row-2__cost" style="color:var(--amber)">57.12 ms</span>
+        </div>
+        <div class="row-2" style="padding-left:28px">
+          <span class="row-2__name" style="width:162px;color:#8B95A7">Order.from(cmd)</span>
+          <span class="row-2__bar" style="width:5px;background:var(--faint)"></span>
+          <span class="row-2__cost" style="color:#6E7A8C">1.05 ms</span>
+        </div>
+      </div>
+
+      <div class="sec">命中记录　watch</div>
+      <div class="tbl">
+        <div class="tbl__hd">
+          <span class="c-time">时间</span><span class="c-ch">channel</span>
+          <span class="c-cost">耗时</span><span class="c-res">返回值 status</span>
+        </div>
+        <div class="tbl__r">
+          <span class="c-time">10:14:31.902</span><span class="c-ch">APP</span>
+          <span class="c-cost cost--amber">118.40 ms</span>
+          <span class="c-res">@Order[status=PAID]</span>
+        </div>
+        <div class="tbl__r">
+          <span class="c-time">10:14:22.418</span><span class="c-ch">APP</span>
+          <span class="c-cost cost--hot">62.31 ms</span>
+          <span class="c-res">@Order[status=PAID]</span>
+        </div>
+        <div class="tbl__r">
+          <span class="c-time">10:14:44.117</span><span class="c-ch">APP</span>
+          <span class="c-cost cost--ok">51.09 ms</span>
+          <span class="c-res">@Order[status=PAID]</span>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat__l">平均耗时</div><div class="stat__v">62.31 ms</div></div>
+        <div class="stat"><div class="stat__l">最大耗时</div><div class="stat__v" style="color:var(--amber)">118.40 ms</div></div>
+        <div class="stat"><div class="stat__l">慢于 50 ms</div><div class="stat__v" style="color:var(--accent-hi)">5 / 5 次</div></div>
+      </div>
+
+      <div class="sec">记录详情</div>
+      <div class="json">{
+  params: [
+    { channel: "APP", amount: 299.00, sku: "SKU-88213" }
+  ],
+  returnObj: { id: 88213, status: "PAID" },
+  throwExp: null
+}</div>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast" hidden>
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="#3FB950" stroke-width="1.3"/><path d="M4.8 7.7l1.9 1.9 3.6-3.8" stroke="#3FB950" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span id="toast-text"></span>
+    <button class="toast__act" id="toast-act">关闭</button>
+  </div>
+
+</div>
+
+<script>
+// 宿主注入的 frame 桥（window.openidea）在页面脚本之前就绪；本文件单独用浏览器
+// 打开时没有桥，退回 window.parent.postMessage，方便独立预览与调试。
+(function () {
+  const bridge = window.openidea;
+  window.arthasHost = {
+    present: !!bridge,
+    send(message) {
+      if (bridge) { bridge.postMessage(JSON.stringify(message)); return; }
+      if (window.parent !== window) window.parent.postMessage(message, "*");
+    },
+    onMessage(fn) {
+      if (bridge) {
+        bridge.onMessage((text) => {
+          try { fn(JSON.parse(text)); } catch { /* 宿主发来的非 JSON 一律忽略 */ }
+        });
+      } else {
+        window.addEventListener("message", (e) => {
+          if (e.data && typeof e.data === "object") fn(e.data);
+        });
+      }
+    },
+  };
+})();
+</script>
+
+<script>
+(() => {
+  "use strict";
+
+  // ── 状态 ────────────────────────────────────────────────────────
+  // 命令清单整个来自插件：类名、方法、每个族的模板与字段值都由它算好，
+  // 页面只负责把 template 里的 ${KEY} 换成用户填的值。
+  const state = {
+    cls: "",
+    member: "",
+    kind: "",
+    signature: "",
+    selection: "",
+    params: [],
+    commands: [],      // [{id,label,describe,doc,variants:[...]}]
+    family: "watch",
+    variant: "",
+    values: {},        // 当前变体的 field.key -> value
+    session: "idle",   // idle | ready
+    view: "build",     // build | result
+  };
+
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+  // ── 空白折叠 ────────────────────────────────────────────────────
+  // 与插件 catalog.rs 的 tidy 同一套规则：引号外连续空白压成一个，
+  // 引号内一个字符都不动 —— Spring 全量表达式里靠字符串里的空格排版。
+  function tidy(text) {
+    let out = "";
+    let quote = null;
+    let escaped = false;
+    let gap = false;
+    for (const ch of text) {
+      if (quote) {
+        out += ch;
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === quote) quote = null;
+        continue;
+      }
+      if (ch === "'" || ch === '"') {
+        if (gap && out) out += " ";
+        gap = false;
+        quote = ch;
+        out += ch;
+        continue;
+      }
+      if (/\s/.test(ch)) { gap = true; continue; }
+      if (gap && out) out += " ";
+      gap = false;
+      out += ch;
+    }
+    return out;
+  }
+
+  // ── 当前族 / 变体 ───────────────────────────────────────────────
+  const family = () => state.commands.find((c) => c.id === state.family) || null;
+  const variant = () => {
+    const f = family();
+    return (f && f.variants.find((v) => v.key === state.variant)) || (f && f.variants[0]) || null;
+  };
+
+  /** 变体渲染成一行命令，与插件 `Variant::render` 的结果一致。 */
+  function compose(v) {
+    let out = v.template;
+    for (const f of v.fields) out = out.replaceAll("${" + f.key + "}", state.values[f.key] ?? f.value);
+    return tidy(out);
+  }
+
+  // ── 命令上色 ────────────────────────────────────────────────────
+  const TOKEN = /'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\s+|--?[A-Za-z][\w-]*|[^\s'"]+/g;
+
+  function paint(command) {
+    const frag = document.createDocumentFragment();
+    let first = true;
+    for (const m of command.matchAll(TOKEN)) {
+      const tok = m[0];
+      const el = document.createElement("span");
+      if (/^\s+$/.test(tok)) el.textContent = tok;
+      else if (/^['"]/.test(tok)) { el.className = "c-str"; el.textContent = tok; }
+      else if (/^--?/.test(tok)) { el.className = "c-flag"; el.textContent = tok; }
+      else if (first) { el.className = "c-cmd"; el.textContent = tok; first = false; }
+      else { el.textContent = tok; first = false; }
+      frag.appendChild(el);
+    }
+    return frag;
+  }
+
+  // 可选参数的占位提示：值为空表示"这条命令不加这个开关"
+  const OPTIONAL = { V: "-v（留空即不加）", CONDITION: "留空表示命中全部" };
+
+  // ── 渲染：命令族 ────────────────────────────────────────────────
+  function renderFamilies() {
+    const box = $("#fams");
+    box.textContent = "";
+    for (const c of state.commands) {
+      const b = document.createElement("button");
+      b.className = "fam";
+      b.textContent = c.label || c.id;
+      b.dataset.family = c.id;
+      b.title = c.describe || "";
+      b.setAttribute("aria-pressed", String(c.id === state.family));
+      box.appendChild(b);
+    }
+  }
+
+  // ── 渲染：变体 ──────────────────────────────────────────────────
+  function renderVariants() {
+    const box = $("#vars");
+    box.textContent = "";
+    const f = family();
+    const v = variant();
+    if (!f || !v) { $("#var-desc").textContent = ""; return; }
+    // 只有一个形态时不占地方：说明文字已经够了
+    box.hidden = f.variants.length < 2;
+    for (const item of f.variants) {
+      const b = document.createElement("button");
+      b.className = "var";
+      b.textContent = item.label;
+      b.dataset.variant = item.key;
+      b.title = item.describe || "";
+      b.setAttribute("aria-pressed", String(item.key === v.key));
+      box.appendChild(b);
+    }
+    $("#var-desc").textContent = v.describe || f.describe || "";
+  }
+
+  // ── 渲染：字段 ──────────────────────────────────────────────────
+  function renderForm() {
+    const box = $("#form");
+    box.textContent = "";
+    const v = variant();
+    if (!v) return;
+
+    const numbers = v.fields.filter((f) => f.kind === "number");
+    let pair = null;   // 两个数字字段并排，省一行高度
+
+    for (const f of v.fields) {
+      const wrap = document.createElement("div");
+      wrap.className = "field";
+      wrap.dataset.key = f.key;
+
+      const label = document.createElement("label");
+      label.textContent = f.label;
+      wrap.appendChild(label);
+
+      const input = document.createElement("div");
+      input.className = "input" + (f.kind === "number" ? " input--sm" : "");
+
+      if (f.kind === "select") {
+        const sel = document.createElement("select");
+        for (const [value, text] of f.choices) {
+          const opt = document.createElement("option");
+          opt.value = value;
+          opt.textContent = text;
+          sel.appendChild(opt);
+        }
+        sel.value = state.values[f.key] ?? f.value;
+        sel.addEventListener("change", () => { state.values[f.key] = sel.value; renderCommand(); });
+        const caret = document.createElement("span");
+        caret.className = "input__caret";
+        caret.textContent = "▾";
+        input.append(sel, caret);
+      } else {
+        const field = document.createElement("input");
+        field.spellcheck = false;
+        if (f.kind === "number") field.inputMode = "numeric";
+        field.value = state.values[f.key] ?? f.value;
+        field.placeholder = OPTIONAL[f.key] || "";
+        field.addEventListener("input", () => {
+          // 数字字段只收数字：`-n 5x` 这样的命令 arthas 会整条拒掉
+          if (f.kind === "number" && !/^\d*$/.test(field.value)) {
+            field.value = field.value.replace(/\D/g, "");
+          }
+          state.values[f.key] = field.value;
+          renderCommand();
+        });
+        input.appendChild(field);
+      }
+
+      wrap.appendChild(input);
+
+      // 两个数字字段并排；第三个另起一行
+      if (numbers.length === 2 && numbers.includes(f) && !pair) {
+        pair = document.createElement("div");
+        pair.className = "field-2";
+        pair.appendChild(wrap);
+        box.appendChild(pair);
+        continue;
+      }
+      if (pair && numbers.length === 2 && numbers.includes(f)) { pair.appendChild(wrap); continue; }
+      box.appendChild(wrap);
+    }
+  }
+
+  // ── 渲染：命令 ──────────────────────────────────────────────────
+  function renderCommand() {
+    const v = variant();
+    const code = $("#cmd-code");
+    code.textContent = "";
+    if (!v) {
+      code.textContent = "先定位一个类：把光标放到 Java / Kotlin 文件的方法或字段上。";
+      $("#cmd-badge").textContent = "—";
+      return;
+    }
+    const command = compose(v);
+    code.appendChild(paint(command));
+    $("#cmd-badge").textContent = state.family;
+    const f = family();
+    $("#cmd-hint").textContent = f && f.doc ? `⌘⏎ 执行　·　文档 ${f.doc.replace(/^https?:\/\//, "")}` : "⌘⏎ 执行";
+  }
+
+  // ── 渲染：定位卡片 ──────────────────────────────────────────────
+  function renderLocation() {
+    const kinds = { method: "方法", field: "字段", class: "类" };
+    $("#loc-kind").textContent = kinds[state.kind] || "类";
+    // 成员名后面直接跟参数类型：Arthas 按名字匹配，重载全都会被命中，
+    // 所以这里把「写出来的是什么」和「会命中几个」都说清楚。
+    const params = state.params && state.params.length ? `(${state.params.join(", ")})` : "";
+    if (state.kind === "method") $("#loc-member").textContent = `${state.member}${params}`;
+    else if (state.kind === "field") $("#loc-member").textContent = `${state.member}: ${state.params[0] || "?"}`;
+    else $("#loc-member").textContent = state.simple || "—";
+
+    const parts = [state.cls || "—"];
+    if (state.overloads > 1) parts.push(`${state.overloads} 处声明，全部命中`);
+    $("#loc-meta").textContent = parts.join("　·　");
+  }
+
+  // ── 渲染：整体 ──────────────────────────────────────────────────
+  function render() {
+    // 一个元素上可能同时挂着 data-state 和 data-view（构建/命中记录同属 ready），
+    // 所以两个条件一起算，别让后写的那次把前一次的 hidden 解开。
+    for (const el of $$("[data-state]")) {
+      const bySession = el.dataset.state === state.session;
+      const byView = !el.dataset.view || el.dataset.view === state.view;
+      el.hidden = !(bySession && byView);
+    }
+    for (const t of $$(".tab")) t.classList.toggle("is-active", t.dataset.tab === state.view);
+    // 未定位时两个视图都没有内容，标签页也就没有意义
+    const tabs = $(".tabs");
+    if (tabs) tabs.hidden = state.session !== "ready";
+
+    if (state.session === "ready") {
+      renderFamilies();
+      renderVariants();
+      renderForm();
+      renderLocation();
+      renderCommand();
+    }
+  }
+
+  // ── 选族 / 选变体 ───────────────────────────────────────────────
+  /** 换族或换变体时，字段值回到插件给的那份默认值。 */
+  function adopt(familyId, variantKey) {
+    state.family = familyId;
+    const f = family();
+    if (!f) return;
+    const v = f.variants.find((x) => x.key === variantKey) || f.variants[0];
+    state.variant = v.key;
+    state.values = {};
+    for (const field of v.fields) state.values[field.key] = field.value;
+  }
+
+  window.addEventListener("click", (e) => {
+    const fam = e.target.closest("[data-family]");
+    if (fam) {
+      adopt(fam.dataset.family, "");
+      render();
+      return;
+    }
+    const v = e.target.closest("[data-variant]");
+    if (v) {
+      adopt(state.family, v.dataset.variant);
+      render();
+    }
+  });
+
+  // ── 复制 / 执行 ─────────────────────────────────────────────────
+  function currentCommand() {
+    const v = variant();
+    return v ? compose(v) : "";
+  }
+
+  $("#btn-copy").addEventListener("click", () => {
+    const command = currentCommand();
+    if (!command) return;
+    if (window.arthasHost.present) {
+      window.arthasHost.send({ type: "arthas.copy", command });
+    } else {
+      navigator.clipboard?.writeText(command).catch(() => toast("浏览器拒绝了剪贴板访问"));
+    }
+  });
+
+  $("#btn-run").addEventListener("click", () => {
+    const command = currentCommand();
+    if (!command) { toast("先定位一个类"); return; }
+    if (!window.arthasHost.present) {
+      navigator.clipboard?.writeText(command).catch(() => {});
+      toast("未检测到宿主，命令已复制");
+      return;
+    }
+    window.arthasHost.send({ type: "arthas.execute", command });
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); $("#btn-run").click(); }
+  });
+
+  // ── 标签页 ──────────────────────────────────────────────────────
+  for (const t of $$(".tab")) {
+    t.addEventListener("click", () => { state.view = t.dataset.tab; render(); });
+  }
+
+  // ── 目标 JVM ────────────────────────────────────────────────────
+  function renderTargets(list) {
+    const box = $("#proc-list");
+    box.textContent = "";
+    for (const t of list) {
+      const b = document.createElement("button");
+      b.className = "proc";
+      b.dataset.pid = t.pid;
+      b.dataset.app = t.app;
+      const name = document.createElement("span");
+      name.className = "proc__name";
+      name.textContent = t.app || "—";
+      const meta = document.createElement("span");
+      meta.className = "proc__meta";
+      meta.textContent = `PID ${t.pid}`;
+      b.append(name, meta);
+      box.appendChild(b);
+    }
+    $$(".empty .sec").forEach((s) => { s.textContent = `本机 JVM · ${list.length} 个`; });
+    if (!list.length) {
+      const hint = document.createElement("div");
+      hint.className = "hint";
+      hint.textContent = "没读到 JVM 列表：需要 process:jps 授权，且 PATH 上有 jps。";
+      box.appendChild(hint);
+    }
+  }
+
+  $("#proc-list").addEventListener("click", (e) => {
+    const p = e.target.closest("[data-pid]");
+    if (!p) return;
+    $("#target-name").textContent = p.dataset.app;
+    $("#target-meta").textContent = `PID ${p.dataset.pid}　·　执行时 attach`;
+    $("#target-dot").className = "dot dot--on";
+    $("#target-pill").textContent = "已选择";
+    $("#target-pill").className = "pill";
+    window.arthasHost.send({ type: "arthas.pick-target", pid: p.dataset.pid, app: p.dataset.app });
+  });
+
+  $("#proc-filter").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    for (const p of $$(".proc")) {
+      const hay = (p.dataset.app + " " + p.dataset.pid).toLowerCase();
+      p.hidden = q !== "" && !hay.includes(q);
+    }
+  });
+
+  $("#btn-reload").addEventListener("click", () => window.arthasHost.send({ type: "arthas.refresh" }));
+  $("#btn-targets").addEventListener("click", () => window.arthasHost.send({ type: "arthas.targets" }));
+
+  // ── Toast ───────────────────────────────────────────────────────
+  let toastTimer = 0;
+  function toast(text) {
+    $("#toast-text").textContent = text;
+    $("#toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $("#toast").hidden = true; }, 4200);
+  }
+  $("#toast-act").addEventListener("click", () => { $("#toast").hidden = true; });
+
+  // ── 宿主通信 ────────────────────────────────────────────────────
+  window.arthasHost.onMessage((msg) => {
+    if (!msg || typeof msg !== "object") return;
+
+    if (msg.type === "arthas.catalog") {
+      state.cls = msg.cls || "";
+      state.member = msg.member || "";
+      state.kind = msg.kind || "";
+      state.signature = msg.signature || "";
+      state.overloads = msg.overloads || 0;
+      state.selection = msg.selection || "";
+      state.params = msg.params || [];
+      state.commands = msg.commands || [];
+      if (!state.commands.length) { toast("没有可用的命令：光标不在类里？"); return; }
+
+      // 菜单点了哪个族就切到哪个族；否则保留当前的，再不行用第一个
+      const wanted = [msg.focus, state.family].find((id) => id && state.commands.some((c) => c.id === id));
+      const keep = wanted && wanted === state.family ? state.variant : "";
+      adopt(wanted || state.commands[0].id, keep);
+
+      state.session = "ready";
+      state.view = "build";
+      $("#idle-banner").hidden = true;
+      render();
+      return;
+    }
+
+    if (msg.type === "arthas.targets") { renderTargets(msg.list || []); return; }
+
+    if (msg.type === "arthas.target" && msg.pid) {
+      $("#target-name").textContent = msg.app || "unknown";
+      $("#target-meta").textContent = `PID ${msg.pid}　·　执行时 attach`;
+      $("#target-dot").className = "dot dot--on";
+      $("#target-pill").textContent = "已选择";
+      $("#target-pill").className = "pill";
+      return;
+    }
+
+    if (msg.type === "arthas.result") { toast(msg.message || (msg.ok ? "已交给 Arthas" : "命令被拒绝")); return; }
+
+    if (msg.type === "arthas.error") {
+      // 没有类可定位时留在 idle，把原因留在页面上（而不是只闪一下 toast：
+      // 那句话往往就是用户接下来要照着改的提示）
+      $("#idle-banner").hidden = false;
+      $("#idle-banner-text").textContent = msg.message || "无法推断类名";
+      state.session = "idle";
+      render();
+    }
+  });
+
+  // 供调试直接调用：window.arthas.command() 拿当前命令文本
+  window.arthas = { command: currentCommand, state };
+
+  // 首屏：问一次 JVM 列表，再让插件按当前光标算一遍命令
+  if (window.arthasHost.present) {
+    window.arthasHost.send({ type: "arthas.targets" });
+    window.arthasHost.send({ type: "arthas.refresh" });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

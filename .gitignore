@@ -1,0 +1,9 @@
+# Build output: `openidea-plugin build` writes dist/plugin.wasm.
+/target/
+/dist/
+
+# A signed package is a release asset, never a commit.
+*.oiplugin
+
+# Publisher signing keys stay on the machine that signs.
+*.key

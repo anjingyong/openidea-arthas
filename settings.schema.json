@@ -1,0 +1,109 @@
+{
+  "properties": {
+    "arthasJar": {
+      "type": "string",
+      "title": "arthas-boot.jar",
+      "group": "Connection",
+      "description": "Absolute path to arthas-boot.jar. Set it and Run opens an Arthas terminal against the target PID; leave it empty and Run only copies the command, for a session you already have.",
+      "default": ""
+    },
+    "targetPid": {
+      "type": "string",
+      "title": "Target JVM PID",
+      "group": "Connection",
+      "description": "The PID arthas-boot attaches to non-interactively. Refresh the list in the panel to find it.",
+      "default": ""
+    },
+    "depth": {
+      "type": "integer",
+      "title": "Default depth (-x)",
+      "group": "Defaults",
+      "description": "How deep the result is expanded. 1 prints the summary, 3 prints nested objects.",
+      "default": 3
+    },
+    "count": {
+      "type": "integer",
+      "title": "Default count (-n)",
+      "group": "Defaults",
+      "description": "How many invocations are recorded before watch / trace / stack / tt return.",
+      "default": 5
+    },
+    "monitorCount": {
+      "type": "integer",
+      "title": "Monitor periods (-n)",
+      "group": "Defaults",
+      "description": "How many reporting periods monitor runs for.",
+      "default": 10
+    },
+    "monitorInterval": {
+      "type": "integer",
+      "title": "Monitor cycle (--cycle, seconds)",
+      "group": "Defaults",
+      "description": "The length of one reporting period. 120 is the interval monitor uses when it is not told one.",
+      "default": 10
+    },
+    "verbose": {
+      "type": "boolean",
+      "title": "Print condition results (-v)",
+      "group": "Defaults",
+      "description": "Also print whether the condition matched, for every invocation seen — useful while writing a condition.",
+      "default": false
+    },
+    "condition": {
+      "type": "boolean",
+      "title": "Start with '1==1'",
+      "group": "Defaults",
+      "description": "Fill in the placeholder condition. It always matches, so the command works before you write a real one.",
+      "default": true
+    },
+    "skipJdkMethod": {
+      "type": "boolean",
+      "title": "Hide JDK frames in trace",
+      "group": "Defaults",
+      "description": "Off (the default) passes --skipJDKMethod false, which shows the whole path including JDK classes — usually what you want when reading a call chain.",
+      "default": false
+    },
+    "springContext": {
+      "type": "string",
+      "title": "Spring context expression",
+      "group": "Spring",
+      "description": "The OGNL expression that yields the Spring ApplicationContext. @applicationContextProvider@context works when the app exposes one; otherwise read the environment through vmtool.",
+      "default": "@applicationContextProvider@context"
+    },
+    "value": {
+      "type": "string",
+      "title": "Field write value",
+      "group": "Fields",
+      "description": "The value field commands write. Empty means the target field's type decides: 0, false, \"\" or null.",
+      "default": ""
+    },
+    "level": {
+      "type": "string",
+      "title": "Log level",
+      "group": "Logger",
+      "description": "trace, debug, info, warn or error. The panel offers the same five as a list.",
+      "default": "debug"
+    },
+    "event": {
+      "type": "string",
+      "title": "Profiler event",
+      "group": "Profiler",
+      "description": "cpu, alloc, lock, wall or itimer. cpu samples on-CPU time; wall also counts waiting.",
+      "default": "cpu"
+    },
+    "format": {
+      "type": "string",
+      "title": "Profiler output format",
+      "group": "Profiler",
+      "description": "html (a flame graph you can open in a browser), jfr, collapsed or flat.",
+      "default": "html"
+    },
+    "duration": {
+      "type": "integer",
+      "title": "Profiler duration (seconds)",
+      "group": "Profiler",
+      "description": "How long to sample before writing the file. 0 or less means sample until stopped.",
+      "default": 30
+    }
+  }
+}
